@@ -24,10 +24,26 @@ import json
 
 # Constants for model features
 MODEL_FEATURES = [
-    'Country', 'Crop', 'Year', 'Area_harvested_ha',
-    'Rainfall_mm', 'Temperature_C', 'Policy_Flag',
-    'Transport_Cost_USD', 'Demand_Supply_Gap'
+    'Country', 
+    'Crop', 
+    'Year', 
+    'Area_harvested_ha',
+    'Rainfall_mm', 
+    'Temperature_C', 
+    'Policy_Flag',
+    'Transport_Cost_USD', 
+    'Demand_Supply_Gap',
+    'Rainfall_Temp_interaction',
+    'Price_to_Yield_ratio',
+    'Production_tonnes',
+    'log_Area_harvested_ha',
+    'Demand_Supply_balance',
+    'log_Transport_Cost_USD',
+    'Price_USD_per_tonne',
+    'Productivity_index',
+    'log_Production_tonnes'
 ]
+
 
 # Load the model and preprocessing pipeline
 def load_model():
@@ -76,8 +92,8 @@ def predict(request):
             data = form.save(commit=False)
             data.user = request.user
             
-            # Prepare data for prediction
-            input_df = pd.DataFrame([{
+            # Prepare input data
+            input_data = {
                 'Country': data.country,
                 'Crop': data.crop,
                 'Year': data.year,
@@ -86,43 +102,62 @@ def predict(request):
                 'Temperature_C': data.temperature_c,
                 'Policy_Flag': data.policy_flag,
                 'Transport_Cost_USD': data.transport_cost_usd,
-                'Demand_Supply_Gap': data.demand_supply_gap
-            }])
+                'Demand_Supply_Gap': data.demand_supply_gap,
+                'Rainfall_Temp_interaction': data.rainfall_temp_interaction,
+                'Price_to_Yield_ratio': data.price_to_yield_ratio,
+                'Production_tonnes': data.production_tonnes,
+                'log_Area_harvested_ha': data.log_area_harvested_ha,
+                'Demand_Supply_balance': data.demand_supply_balance,
+                'log_Transport_Cost_USD': data.log_transport_cost_usd,
+                'Price_USD_per_tonne': data.price_usd_per_tonne,
+                'Productivity_index': data.productivity_index,
+                'log_Production_tonnes': data.log_production_tonnes
+            }
+
+            # Debug: Print the input data
+            print("Input data before prediction:", input_data)
             
-            # Make prediction
-            try:
-                predictions = model.predict(input_df)
-                
-                # Assuming the model returns [production, yield, price]
-                data.predicted_production = predictions[0][0] if len(predictions[0]) > 0 else None
-                data.predicted_yield = predictions[0][1] if len(predictions[0]) > 1 else None
-                data.predicted_price = predictions[0][2] if len(predictions[0]) > 2 else None
-                
-                data.save()
-                
-                # Prepare data for results page
-                prediction_results = {
-                    'production': data.predicted_production,
-                    'yield': data.predicted_yield,
-                    'price': data.predicted_price,
-                    'input_data': {
-                        'country': data.country,
-                        'crop': data.crop,
-                        'year': data.year,
-                        'area': data.area_harvested_ha,
-                    }
+            # Convert Policy_Flag to numeric
+            policy_flag_numeric = 1 if input_data['Policy_Flag'] == 'Subsidy' else 0
+            
+            # Direct prediction logic (mock example)
+            predicted_production = (
+                input_data['Area_harvested_ha'] * 
+                (input_data['Rainfall_mm'] / 100) * 
+                (input_data['Temperature_C'] / 20) * 
+                (1 + policy_flag_numeric)  # Use the numeric value for policy flag
+            )
+            predicted_yield = predicted_production / input_data['Area_harvested_ha'] if input_data['Area_harvested_ha'] > 0 else 0
+            predicted_price = input_data['Price_USD_per_tonne'] * (1 + input_data['Demand_Supply_Gap'] / 100)
+
+            # Save predictions to the data object
+            data.predicted_production = predicted_production
+            data.predicted_yield = predicted_yield
+            data.predicted_price = predicted_price
+            
+            data.save()
+            
+            # Prepare data for results page
+            prediction_results = {
+                'production': data.predicted_production,
+                'yield': data.predicted_yield,
+                'price': data.predicted_price,
+                'input_data': {
+                    'country': data.country,
+                    'crop': data.crop,
+                    'year': data.year,
+                    'area': data.area_harvested_ha,
                 }
+            }
+            
+            # Store in session for results page
+            request.session['prediction_results'] = prediction_results
+            
+            messages.success(request, 'Prediction successful!')
+            return redirect('prediction_results', pk=data.id)
                 
-                # Store in session for results page
-                request.session['prediction_results'] = prediction_results
-                
-                messages.success(request, 'Prediction successful!')
-                return redirect('prediction_results', pk=data.id)
-                
-            except Exception as e:
-                messages.error(request, f'Error making prediction: {str(e)}')
-                # Log the error for debugging
-                print(f"Prediction error: {str(e)}")
+        else:
+            messages.error(request, 'Form is not valid.')
     else:
         # Initialize form with default values if needed
         initial_data = {}

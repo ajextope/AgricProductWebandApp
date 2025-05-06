@@ -8,45 +8,90 @@ class AgriculturalDataForm(forms.ModelForm):
     class Meta:
         model = AgriculturalData
         fields = [
-            'country', 'crop', 'year', 'area_harvested_ha', 
-            'rainfall_mm', 'temperature_c', 'policy_flag',
-            'transport_cost_usd', 'demand_supply_gap'
+            'country', 'crop', 'year', 'area_harvested_ha',
+            'production_tonnes', 'rainfall_mm', 'temperature_c',
+            'price_usd_per_tonne', 'policy_flag', 'transport_cost_usd',
+            'demand_supply_gap', 'productivity_index'
         ]
         widgets = {
             'year': forms.NumberInput(attrs={
-                'min': 2000, 
+                'min': 2000,
                 'max': 2100,
                 'class': 'form-control'
             }),
             'area_harvested_ha': forms.NumberInput(attrs={
                 'step': '0.01',
+                'min': 0,
+                'class': 'form-control'
+            }),
+            'production_tonnes': forms.NumberInput(attrs={
+                'step': '0.01',
+                'min': 0,
                 'class': 'form-control'
             }),
             'rainfall_mm': forms.NumberInput(attrs={
                 'step': '0.01',
+                'min': 0,
                 'class': 'form-control'
             }),
             'temperature_c': forms.NumberInput(attrs={
                 'step': '0.1',
                 'class': 'form-control'
             }),
+            'price_usd_per_tonne': forms.NumberInput(attrs={
+                'step': '0.01',
+                'min': 0,
+                'class': 'form-control'
+            }),
             'transport_cost_usd': forms.NumberInput(attrs={
                 'step': '0.01',
+                'min': 0,
                 'class': 'form-control'
             }),
             'demand_supply_gap': forms.NumberInput(attrs={
                 'step': '0.01',
                 'class': 'form-control'
             }),
+            'productivity_index': forms.NumberInput(attrs={
+                'step': '0.0001',
+                'min': 0,
+                'class': 'form-control'
+            }),
+            # 'policy_flag': forms.Select(attrs={
+            #     'class': 'form-control'
+            # }),
         }
         labels = {
             'area_harvested_ha': 'Area Harvested (ha)',
+            'production_tonnes': 'Production (tonnes)',
             'rainfall_mm': 'Rainfall (mm)',
             'temperature_c': 'Temperature (°C)',
+            'price_usd_per_tonne': 'Price (USD/tonne)',
             'transport_cost_usd': 'Transport Cost (USD)',
             'demand_supply_gap': 'Demand Supply Gap',
+            'productivity_index': 'Productivity Index',
             'policy_flag': 'Policy Type',
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set all fields as required by default
+        for field in self.fields:
+            self.fields[field].required = True
+        # Make some fields optional if needed
+        self.fields['productivity_index'].required = False
+        self.fields['policy_flag'].required = False
+
+    def clean_year(self):
+        year = self.cleaned_data['year']
+        if year < 2000 or year > 2100:
+            raise forms.ValidationError("Year must be between 2000 and 2100")
+        return year
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Add any cross-field validation here
+        return cleaned_data
 
 class SignUpForm(forms.ModelForm):
     password1 = forms.CharField(
